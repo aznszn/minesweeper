@@ -31,6 +31,7 @@ disp BYTE 0,0,0,0,0,0,0,0,0,0,0
 ast BYTE 254,' ',0
 space BYTE ' ',0
 losttext BYTE 'You lost the game :(',0
+wontext BYTE 'LFG YOU WIN!!!!', 0
 bomsymbol BYTE 19,' ',0
 rowText BYTE 'Enter row number: ', 0
 colText BYTE 'Enter column number: ', 0
@@ -55,15 +56,30 @@ call input
 call check
 cmp dl, 1
 je lost
+call checkWin
+cmp dl, 2
+je won
 call display
 jmp gameloop
 
 lost:
+call crlf
 mov edx, offset losttext
 call writestring
 call crlf
 call showall
 call display
+jmp endgame
+
+won:
+call crlf
+mov edx, offset wontext
+call writestring
+call crlf
+call showall
+call display
+
+endgame:
 
 exit
 main ENDP
@@ -77,7 +93,7 @@ add esi, eax
 cmp BYTE PTR [esi], 1
 je ex
 
-movzx esi, al			;if cell contains zero
+movzx esi, al	;if cell contains zero			
 add esi, offset field
 cmp BYTE PTR [esi], 0
 jne i1 ;jump to else if
@@ -134,8 +150,8 @@ jmp ex
 ;end elseif
 
 ;else
-ee:	;must be a number, display it
-mov esi, offset disp
+ee:	
+mov esi, offset disp	;must be a number, display it
 add esi, eax
 mov BYTE PTR [esi], 1
 ;end else
@@ -309,6 +325,7 @@ mov esi, offset field
 mov i, 1
 addNumsL1:
 
+
 	mov j, 1
 	addNumsL2:
 		mov eax, i
@@ -371,5 +388,39 @@ jne addNumsL1
 ret
 addNums endp
 
+checkWin proc
+mov ecx, 0
+
+mov i, 1
+winL1:
+	mov j, 1
+	winL2:
+		mov eax, rowSize
+		mov bl, BYTE PTR i
+		imul bl
+		add al, BYTE PTR j
+		mov esi, offset disp
+		add esi, eax
+		cmp BYTE PTR [esi], 0
+		jne covered
+		inc ecx
+	covered:
+	inc j
+	mov eax, play_cols
+	cmp j, eax
+	jle winL2
+inc i
+mov eax, play_rows
+cmp i, eax
+jle winL1
+
+ 
+cmp ecx, numOfBombs
+jne notwin
+mov dl, 2
+
+notwin:
+ret 
+checkWin endp
 
 end main
