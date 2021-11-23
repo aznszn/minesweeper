@@ -31,63 +31,66 @@ disp BYTE 0,0,0,0,0,0,0,0,0,0,0
 ast BYTE 254,' ',0
 space BYTE ' ',0
 losttext BYTE 'You lost the game :(',0
+bomsymbol BYTE 19,' ',0
+rowText BYTE 'Enter row number: ', 0
+colText BYTE 'Enter column number: ', 0
+invalidInput BYTE 'Err! Invalid input please enter valid value',0
 i DWORD 0
 j DWORD 0
-k BYTE 0
+k DWORD 0
+play_rows DWORD 9
+play_cols DWORD 9
+playsize DWORD 9*9
+numOfBombs DWORD 9
+rowSize	DWORD 11
 
 .code
 main PROC
 
-;call display
-;gameloop:
-;call input
-;call check
-;cmp dl, 1
-;je lost
-;call display
-;jmp gameloop
+call addBombs
+call addNums
+call display
+gameloop:;
+call input
+call check
+cmp dl, 1
+je lost
+call display
+jmp gameloop
 
-;lost:
-call putbombs
+lost:
+mov edx, offset losttext
+call writestring
+call crlf
 call showall
 call display
-;mov edx, offset losttext
-;call writestring
 
 exit
 main ENDP
 
-;----------------------------------------------------------------
-check PROC uses eax
-;------------------------------------------------
+;-----------------------------------------------|
+check PROC uses eax;                            |
 ;checks the chell corresponding the value of eax|
-;------------------------------------------------
-
-;if already displayed, dont check again
-mov esi, offset disp
+;-----------------------------------------------|
+mov esi, offset disp	;if already displayed, dont check again
 add esi, eax
 cmp BYTE PTR [esi], 1
 je ex
 
-;if cell contains zero
-movzx esi, al
+movzx esi, al			;if cell contains zero
 add esi, offset field
 cmp BYTE PTR [esi], 0
-
 jne i1 ;jump to else if
 
-;if cell contains zero
-;set corresponding display cell to 1
-mov dl, 0
+mov dl, 0				;set corresponding display val to 1
 mov esi, offset disp
 add esi, eax
 mov BYTE PTR [esi], 1
 
 ;now recursively check row above current cell for zeroes
 push eax	;saving eax value
-;moving to top left element
-sub eax, 1 
-sub eax, 11
+sub eax, 1 	;moving to top left element
+sub eax, rowSize
 mov i, 0
 
 upper_row:
@@ -97,12 +100,11 @@ upper_row:
 	inc eax
 	inc i
 	cmp i,3
-	jne upper_row
+jne upper_row
 
 ;now revursively check bottom row for zeroes
 pop eax
-;moving to bottom left element
-add eax, 11
+add eax, rowSize	;moving to bottom left element
 sub eax, 1
 mov i, 0
 ZL2:
@@ -112,20 +114,27 @@ ZL2:
 	inc eax
 	inc i
 	cmp i, 3
-	jne ZL2
+jne ZL2
 
-jmp ex	;end if
+;checking left and right element for zeroes
+sub eax, 3	;move to left of current element
+sub eax, rowSize
+call check
+add eax, 2	;move to right
+call check
+jmp ex
+;end if
 
 ;else if contains a mine
 i1:
 cmp BYTE PTR [esi], 9
-
 jne ee	;jump to else
-
 mov dl, 1	;if mine, set player lost flag to 1,
-jmp ex		;end if
+jmp ex		
+;end elseif
 
-ee:	;else, must be a number, display it
+;else
+ee:	;must be a number, display it
 mov esi, offset disp
 add esi, eax
 mov BYTE PTR [esi], 1
@@ -136,42 +145,80 @@ ret
 check ENDP
 ;----------------------------------------------------------------------
 
-;----------------------------------------------------------------------
-input PROC
-;-----------------------------------------------------------
+;----------------------------------------------------------|
+input PROC;                                                |
 ;takes row and column input, stores as single number in eax|
 ;-----------------------------------------------------------
+inputStart:
+mov edx, offset rowText
+call crlf
+call writestring
 call readint
+cmp eax, play_rows
+ja invalid
 mov bl, al
+mov edx, offset colText
+call writestring
 call readint
+cmp eax, play_cols
+ja invalid
 mov bh, al
-mov al, 11
+mov al, BYTE PTR rowSize
 imul bl
 add al, bh
+jmp endInput
+
+invalid:
+mov edx, offset invalidInput
+call writestring
+jmp inputStart
+
+endInput:
 RET
 input ENDP
 ;------------------------------------------------------------
 
-display proc
-;-------------------------------
-;displays field to player      |
-;-------------------------------
+;-------------------------|
+display proc;             |
+;displays field to player |
+;-------------------------|
+call crlf
+mov edx, offset space
+call writestring
+call writestring
+call writestring
+mov i, 1
+topLoop:
+mov eax, i
+call writedec
+call writestring
+inc i
+cmp i,9
+jle topLoop
+call crlf
+call crlf
+
 mov i, 1
 L1:
-
+	mov eax, i
+	call writedec
+	mov edx, offset space
+	call writestring
+	call writestring
 	mov j, 1
 	L2:
-		mov eax, 11
+		mov eax, rowSize
 		mov bl, BYTE PTR i
 		imul bl
 		add al, BYTE PTR j
 		mov esi, offset disp
 		add esi, eax
-		cmp BYTE PTR [esi], 1
-		jne nosho
-		sho:
+		cmp BYTE PTR [esi], 0
+		je nosho
 		mov esi, offset field
 		add esi, eax
+		cmp BYTE PTR [esi], 9
+		je bombsho
 		movzx eax, BYTE PTR [esi]
 		call writedec
 		mov edx, offset space
@@ -180,25 +227,34 @@ L1:
 		nosho:
 		mov edx, offset ast
 		call writestring
+		jmp e
+		bombsho:
+		mov edx, offset bomsymbol
+		call writestring
 		e:
 	inc j
-	cmp j, 10
-	jne L2
+	mov eax, play_rows
+	cmp j, eax
+	jle L2
 call crlf
 inc i
-cmp i, 10
-jne L1
+mov eax, play_cols
+cmp i, eax
+jle L1
 ret
 display endp
 ;-----------------------------------------------------------------
 
-showall PROC
+;------------------------------------------|
+showall PROC;                              |
+;sets the display value to 1 for all cells |
+;----------------------------------------- |
 mov i, 1
 row:
 
 	mov j, 1
 	col:
-		mov eax, 11
+		mov eax, rowSize
 		mov bl, BYTE PTR i
 		imul bl
 		add al, BYTE PTR j
@@ -206,28 +262,30 @@ row:
 		add esi, eax
 		mov BYTE PTR [esi], 1
 	inc j
-	cmp j, 10
-	jne col
+	mov eax, play_cols
+	cmp j, eax
+	jle col
 inc i
-cmp i, 10
-jne row
+mov eax, play_rows
+cmp i, eax
+jle row
 ret
 showall endp
 
-putbombs proc
-mov eax,1
-mov ebx,1
+;========================|
+addBombs proc;           |
+;adds bombs to the field |
+;========================|
+mov eax, 1
+mov ebx, 1
 call randomize
-mov ecx,9
+mov ecx, numOfBombs
 
 loop1:
 	mov esi, offset field
 	push ecx
 	
-	mov eax,121
-	;call delay 13
-	;nop
-	
+	mov eax, playsize
 	call randomrange
 	
 	pop ecx
@@ -236,31 +294,79 @@ loop1:
 	je placebomb
 
 	jmp loop1
-
 	placebomb:
 	mov byte ptr[esi],9
 loop loop1
 ret
-putbombs endp
+addBombs endp
 
-addNums proc
+;---------------------------------------------------------------------------
+addNums proc;                                                              |
+;adds numbers to each cell indicating the number of bombs around that cell |
+;--------------------------------------------------------------------------
 mov esi, offset field
+
 mov i, 1
 addNumsL1:
+
 	mov j, 1
-
 	addNumsL2:
-	mov al, i
-	mov ah, 11
-	imul ah
-	add al, j
-
-	sub al, 11
-	sub al, 1
-
-	mov k, 0
-	addNumsL3:
+		mov eax, i
+		mov ebx, rowSize
+		imul ebx
+		add eax, j
+		cmp BYTE PTR[esi + eax], 9
+		je bomb
+		mov ebx, eax
 		
+		sub eax, rowSize
+		sub eax, 1
+
+		mov k, 0
+		addTopRow:
+			cmp BYTE PTR [esi + eax], 9
+			jne noBomb1
+			inc BYTE PTR [esi + ebx]
+		noBomb1:
+		inc eax
+		inc k
+		cmp k, 3
+		loopnz addTopRow
+		dec eax
+
+		add eax, rowSize
+		
+		mov k, 0
+		addSameRow:
+			cmp BYTE PTR [esi + eax], 9
+			jne noBomb2
+			inc BYTE PTR [esi + ebx]
+		noBomb2:
+		sub eax, 2
+		inc k
+		cmp k, 2
+		jne addSameRow
+
+		add eax, 2
+		add eax, rowSize
+		mov k, 0
+		addBottomRow:
+			cmp BYTE PTR [esi + eax], 9
+			jne noBomb3
+			inc BYTE PTR [esi + ebx]
+		noBomb3:
+		inc eax
+		inc k
+		cmp k, 3
+		jne addBottomRow
+
+	bomb:
+	inc j
+	cmp j, 10
+	jne addNumsL2
+inc i
+cmp i, 10
+jne addNumsL1
 
 ret
 addNums endp
