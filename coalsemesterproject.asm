@@ -35,7 +35,10 @@ wontext BYTE 'LFG YOU WIN!!!!', 0
 bomsymbol BYTE 19,' ',0
 rowText BYTE 'Enter row number: ', 0
 colText BYTE 'Enter column number: ', 0
+flagText BYTE 'Check or place/remove flag? enter 1 to check, enter 2 to add/remove flag: ',0
+invldflag BYTE 'Please enter 1 or 2 only',0
 invalidInput BYTE 'Err! Invalid input please enter valid value',0
+flag BYTE 35, ' ',0
 i DWORD 0
 j DWORD 0
 k DWORD 0
@@ -50,16 +53,19 @@ main PROC
 
 call addBombs
 call addNums
-call display
+
 gameloop:;
+call display
 call input
+cmp dh, 1
+je gameloop
 call check
 cmp dl, 1
 je lost
 call checkWin
 cmp dl, 2
 je won
-call display
+;call display
 jmp gameloop
 
 lost:
@@ -190,6 +196,42 @@ call writestring
 jmp inputStart
 
 endInput:
+mov edx, offset flagText
+call writestring
+push eax
+call readint
+cmp eax, 2
+ja invalidflagchoice
+cmp eax, 1
+jb invalidflagchoice
+cmp eax, 1
+je notflag
+mov dh, 1
+pop eax
+mov esi, offset disp
+add esi, eax
+cmp BYTE PTR [esi], 1
+je endall
+cmp BYTE PTR [esi], 2
+jne placeflag
+mov BYTE PTR [esi], 0
+jmp endall
+placeflag:
+mov BYTE PTR [esi], 2
+jmp endall
+invalidflagchoice:
+mov edx, offset invldflag
+call writestring
+call crlf
+pop eax
+jmp endInput
+
+notflag:
+mov dh, 0
+pop eax
+
+endall:
+
 RET
 input ENDP
 ;------------------------------------------------------------
@@ -231,6 +273,8 @@ L1:
 		add esi, eax
 		cmp BYTE PTR [esi], 0
 		je nosho
+		cmp BYTE PTR [esi], 2
+		je flagsho
 		mov esi, offset field
 		add esi, eax
 		cmp BYTE PTR [esi], 9
@@ -242,6 +286,10 @@ L1:
 		jmp e
 		nosho:
 		mov edx, offset ast
+		call writestring
+		jmp e
+		flagsho:
+		mov edx, offset flag
 		call writestring
 		jmp e
 		bombsho:
