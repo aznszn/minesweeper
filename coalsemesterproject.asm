@@ -2,30 +2,10 @@ INCLUDE IRVINE32.inc
 
 .data
 ;field is the backend record of the value of all cells
-field BYTE 1,1,1,1,1,1,1,1,1,1,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,0,0,0,0,0,0,0,0,0,1
-	  BYTE 1,1,1,1,1,1,1,1,1,1,1
-
+field BYTE 24 DUP(24 DUP(1))
+	  
 ;boolean grid that indicates whether the player has uncovered the corresponding cell
-disp BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
-	 BYTE 0,0,0,0,0,0,0,0,0,0,0
+disp BYTE 24 DUP(24 DUP(0))
 
 ;character to represent covered cell
 ast BYTE 254,' ',0
@@ -38,19 +18,31 @@ colText BYTE 'Enter column number: ', 0
 flagText BYTE 'Check or place/remove flag? enter 1 to check, enter 2 to add/remove flag: ',0
 invldflag BYTE 'Please enter 1 or 2 only',0
 invalidInput BYTE 'Err! Invalid input please enter valid value',0
-flag BYTE 35, ' ',0
+flag BYTE 232, ' ',0
+difficultyText BYTE 'Select difficulty level, press 1 for easy, press 2 for intermediate',0
 i DWORD 0
 j DWORD 0
 k DWORD 0
-play_rows DWORD 9
-play_cols DWORD 9
-playsize DWORD 9*9
+play_rows DWORD 10
+play_cols DWORD 10
+playsize DWORD ?
 numOfBombs DWORD 9
-rowSize	DWORD 11
+rowSize	DWORD 18
 
 .code
 main PROC
 
+getDifficulty:
+mov edx, offset difficultyText
+call writestring
+call readint
+cmp eax, 0
+jna getDifficulty
+cmp eax, 4
+jnb getDifficulty
+call setUpGame
+;call showall
+;call display
 call addBombs
 call addNums
 
@@ -99,7 +91,7 @@ add esi, eax
 cmp BYTE PTR [esi], 1
 je ex
 
-movzx esi, al	;if cell contains zero			
+mov esi, eax	;if cell contains zero			
 add esi, offset field
 cmp BYTE PTR [esi], 0
 jne i1 ;jump to else if
@@ -114,7 +106,6 @@ push eax	;saving eax value
 sub eax, 1 	;moving to top left element
 sub eax, rowSize
 mov i, 0
-
 upper_row:
 	push i
 	call check
@@ -178,16 +169,15 @@ call writestring
 call readint
 cmp eax, play_rows
 ja invalid
-mov bl, al
+imul rowSize
+mov ebx, eax
 mov edx, offset colText
 call writestring
 call readint
 cmp eax, play_cols
 ja invalid
-mov bh, al
-mov al, BYTE PTR rowSize
-imul bl
-add al, bh
+;mov bh, al
+add eax, ebx
 jmp endInput
 
 invalid:
@@ -245,30 +235,45 @@ mov edx, offset space
 call writestring
 call writestring
 call writestring
+
+mov eax, yellow
+call setTextColor
 mov i, 1
 topLoop:
 mov eax, i
 call writedec
 call writestring
+cmp eax, 9
+ja here
+call writestring
+here:
 inc i
-cmp i,9
-jle topLoop
+mov eax, i
+cmp eax, play_cols
+jbe topLoop
+
 call crlf
 call crlf
 
 mov i, 1
-L1:
+L1:	
+	mov eax, yellow
+	call setTextColor
 	mov eax, i
 	call writedec
+	mov eax, white
+	call setTextColor
 	mov edx, offset space
 	call writestring
-	call writestring
 	mov j, 1
+	cmp i, 9
+	ja L2
+	call writestring
 	L2:
 		mov eax, rowSize
-		mov bl, BYTE PTR i
-		imul bl
-		add al, BYTE PTR j
+		mov ebx, i
+		imul ebx
+		add eax, j
 		mov esi, offset disp
 		add esi, eax
 		cmp BYTE PTR [esi], 0
@@ -280,31 +285,56 @@ L1:
 		cmp BYTE PTR [esi], 9
 		je bombsho
 		movzx eax, BYTE PTR [esi]
+		cmp eax, 0
+		je whiteText
+		push eax
+		mov eax, blue
+		call setTextColor
+		pop eax
+		whiteText:
 		call writedec
+		mov eax, white
+		call setTextColor
 		mov edx, offset space
+		call writestring
 		call writestring
 		jmp e
 		nosho:
 		mov edx, offset ast
 		call writestring
+		mov edx, offset space
+		call writestring
 		jmp e
 		flagsho:
+		mov eax, red
+		call setTextColor
 		mov edx, offset flag
+		call writestring
+		mov eax, white
+		call setTextColor
+		mov edx, offset space
 		call writestring
 		jmp e
 		bombsho:
+		mov eax, red
+		call settextcolor
 		mov edx, offset bomsymbol
+		call writestring
+		mov eax, white
+		call setTextColor
+		mov edx, offset space
 		call writestring
 		e:
 	inc j
 	mov eax, play_rows
 	cmp j, eax
-	jle L2
+	jbe L2
+call crlf
 call crlf
 inc i
 mov eax, play_cols
 cmp i, eax
-jle L1
+jbe L1
 ret
 display endp
 ;-----------------------------------------------------------------
@@ -319,20 +349,20 @@ row:
 	mov j, 1
 	col:
 		mov eax, rowSize
-		mov bl, BYTE PTR i
-		imul bl
-		add al, BYTE PTR j
+		mov ebx, i
+		imul ebx
+		add eax, j
 		mov esi, offset disp
 		add esi, eax
 		mov BYTE PTR [esi], 1
 	inc j
 	mov eax, play_cols
 	cmp j, eax
-	jle col
+	jbe col
 inc i
 mov eax, play_rows
 cmp i, eax
-jle row
+jbe row
 ret
 showall endp
 
@@ -427,11 +457,13 @@ addNumsL1:
 
 	bomb:
 	inc j
-	cmp j, 10
-	jne addNumsL2
+	mov eax, j
+	cmp eax, play_cols
+	jbe addNumsL2
 inc i
-cmp i, 10
-jne addNumsL1
+mov eax, i
+cmp eax, play_rows
+jbe addNumsL1
 
 ret
 addNums endp
@@ -444,9 +476,9 @@ winL1:
 	mov j, 1
 	winL2:
 		mov eax, rowSize
-		mov bl, BYTE PTR i
-		imul bl
-		add al, BYTE PTR j
+		mov ebx, i
+		imul ebx
+		add eax, j
 		mov esi, offset disp
 		add esi, eax
 		cmp BYTE PTR [esi], 0
@@ -456,11 +488,11 @@ winL1:
 	inc j
 	mov eax, play_cols
 	cmp j, eax
-	jle winL2
+	jbe winL2
 inc i
 mov eax, play_rows
 cmp i, eax
-jle winL1
+jbe winL1
 
  
 cmp ecx, numOfBombs
@@ -470,5 +502,57 @@ mov dl, 2
 notwin:
 ret 
 checkWin endp
+
+setUpGame proc
+
+cmp eax, 3
+je hard
+cmp eax, 2
+je med
+
+easy:
+mov play_rows, 9
+mov play_cols, 9
+mov numOfBombs, 9
+jmp endSetup
+
+med:
+mov play_rows, 16
+mov play_cols, 16
+mov numOfBombs, 40
+jmp endSetup
+
+hard:
+mov play_rows, 22
+mov play_cols, 22
+mov numOfBombs, 95
+
+endSetup:
+mov eax, play_rows
+mov ebx, play_cols
+imul ebx
+mov playsize, eax
+mov i, 1
+L1:
+	
+	mov j, 1
+	L2:
+		mov eax, i
+		mov ebx, rowSize
+		imul ebx
+		add eax, j
+		mov edi, offset field
+		add edi, eax
+		mov BYTE PTR [edi], 0
+	inc j
+	mov eax, j
+	cmp eax, play_cols
+	jbe L2
+inc i
+mov eax, i
+cmp eax, play_rows
+jbe L1
+ret
+setUpGame endp
 
 end main
