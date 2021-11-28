@@ -2,10 +2,10 @@ INCLUDE IRVINE32.inc
 
 .data
 ;field is the backend record of the value of all cells
-field BYTE 24 DUP(24 DUP(1))
+field BYTE 25 DUP(25 DUP(1))
 	  
 ;boolean grid that indicates whether the player has uncovered the corresponding cell
-disp BYTE 24 DUP(24 DUP(0))
+disp BYTE 25 DUP(25 DUP(0))
 
 ;character to represent covered cell
 ast BYTE 254,' ',0
@@ -19,15 +19,15 @@ flagText BYTE 'Check or place/remove flag? enter 1 to check, enter 2 to add/remo
 invldflag BYTE 'Please enter 1 or 2 only',0
 invalidInput BYTE 'Err! Invalid input please enter valid value',0
 flag BYTE 232, ' ',0
-difficultyText BYTE 'Select difficulty level, press 1 for easy, press 2 for intermediate',0
+difficultyText BYTE 'Select difficulty level, press 1 for easy, press 2 for intermediate, press 3 for hard: ',0
 i DWORD 0
 j DWORD 0
 k DWORD 0
-play_rows DWORD 10
-play_cols DWORD 10
+play_rows DWORD ?
+play_cols DWORD ?
 playsize DWORD ?
-numOfBombs DWORD 9
-rowSize	DWORD 18
+numOfmines DWORD ?
+rowSize	DWORD 24
 
 .code
 main PROC
@@ -43,7 +43,7 @@ jnb getDifficulty
 call setUpGame
 ;call showall
 ;call display
-call addBombs
+call addmines
 call addNums
 
 gameloop:;
@@ -62,7 +62,10 @@ jmp gameloop
 
 lost:
 call crlf
+call crlf
 mov edx, offset losttext
+mov eax, red
+call setTextColor
 call writestring
 call crlf
 call showall
@@ -71,8 +74,13 @@ jmp endgame
 
 won:
 call crlf
+call crlf
 mov edx, offset wontext
+mov eax, cyan
+call setTextColor
 call writestring
+mov eax, white
+call setTextColor
 call crlf
 call showall
 call display
@@ -283,15 +291,19 @@ L1:
 		mov esi, offset field
 		add esi, eax
 		cmp BYTE PTR [esi], 9
-		je bombsho
+		je minesho
 		movzx eax, BYTE PTR [esi]
-		cmp eax, 0
-		je whiteText
 		push eax
-		mov eax, blue
+		cmp eax, 0
+		je zero_
+		mov eax, lightgreen
 		call setTextColor
+		jmp numsho
+		zero_:
+		mov eax, gray
+		call setTextColor
+		numsho:
 		pop eax
-		whiteText:
 		call writedec
 		mov eax, white
 		call setTextColor
@@ -315,7 +327,7 @@ L1:
 		mov edx, offset space
 		call writestring
 		jmp e
-		bombsho:
+		minesho:
 		mov eax, red
 		call settextcolor
 		mov edx, offset bomsymbol
@@ -367,13 +379,13 @@ ret
 showall endp
 
 ;========================|
-addBombs proc;           |
-;adds bombs to the field |
+addmines proc;           |
+;adds mines to the field |
 ;========================|
 mov eax, 1
 mov ebx, 1
 call randomize
-mov ecx, numOfBombs
+mov ecx, numOfmines
 
 loop1:
 	mov esi, offset field
@@ -385,18 +397,18 @@ loop1:
 	pop ecx
 	add esi,eax
 	cmp byte ptr [esi],0
-	je placebomb
+	je placemine
 
 	jmp loop1
-	placebomb:
+	placemine:
 	mov byte ptr[esi],9
 loop loop1
 ret
-addBombs endp
+addmines endp
 
 ;---------------------------------------------------------------------------
 addNums proc;                                                              |
-;adds numbers to each cell indicating the number of bombs around that cell |
+;adds numbers to each cell indicating the number of mines around that cell |
 ;--------------------------------------------------------------------------
 mov esi, offset field
 
@@ -411,7 +423,7 @@ addNumsL1:
 		imul ebx
 		add eax, j
 		cmp BYTE PTR[esi + eax], 9
-		je bomb
+		je mine
 		mov ebx, eax
 		
 		sub eax, rowSize
@@ -420,9 +432,9 @@ addNumsL1:
 		mov k, 0
 		addTopRow:
 			cmp BYTE PTR [esi + eax], 9
-			jne noBomb1
+			jne nomine1
 			inc BYTE PTR [esi + ebx]
-		noBomb1:
+		nomine1:
 		inc eax
 		inc k
 		cmp k, 3
@@ -434,9 +446,9 @@ addNumsL1:
 		mov k, 0
 		addSameRow:
 			cmp BYTE PTR [esi + eax], 9
-			jne noBomb2
+			jne nomine2
 			inc BYTE PTR [esi + ebx]
-		noBomb2:
+		nomine2:
 		sub eax, 2
 		inc k
 		cmp k, 2
@@ -447,15 +459,15 @@ addNumsL1:
 		mov k, 0
 		addBottomRow:
 			cmp BYTE PTR [esi + eax], 9
-			jne noBomb3
+			jne nomine3
 			inc BYTE PTR [esi + ebx]
-		noBomb3:
+		nomine3:
 		inc eax
 		inc k
 		cmp k, 3
 		jne addBottomRow
 
-	bomb:
+	mine:
 	inc j
 	mov eax, j
 	cmp eax, play_cols
@@ -481,10 +493,10 @@ winL1:
 		add eax, j
 		mov esi, offset disp
 		add esi, eax
-		cmp BYTE PTR [esi], 0
-		jne covered
+		cmp BYTE PTR [esi], 1
+		je not_covered
 		inc ecx
-	covered:
+	not_covered:
 	inc j
 	mov eax, play_cols
 	cmp j, eax
@@ -494,8 +506,8 @@ mov eax, play_rows
 cmp i, eax
 jbe winL1
 
- 
-cmp ecx, numOfBombs
+mov eax, ecx
+cmp ecx, numOfmines
 jne notwin
 mov dl, 2
 
@@ -513,19 +525,19 @@ je med
 easy:
 mov play_rows, 9
 mov play_cols, 9
-mov numOfBombs, 9
+mov numOfmines, 9
 jmp endSetup
 
 med:
 mov play_rows, 16
 mov play_cols, 16
-mov numOfBombs, 40
+mov numOfmines, 40
 jmp endSetup
 
 hard:
 mov play_rows, 22
 mov play_cols, 22
-mov numOfBombs, 95
+mov numOfmines, 160
 
 endSetup:
 mov eax, play_rows
