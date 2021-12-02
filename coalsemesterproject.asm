@@ -40,21 +40,17 @@ cmp eax, 0
 jna getDifficulty
 cmp eax, 4
 jnb getDifficulty
-call setUpGame
-call display
-call input
-push eax
-mov ebx, eax
-call addmines
-call addNums
-pop eax
-call check
+
+call startGame
 
 gameloop:;
 call display
 call input
 cmp dh, 1
-je gameloop
+jne noflag
+call placeflag
+jmp gameloop
+noflag:
 call check
 cmp dl, 1
 je lost
@@ -92,6 +88,30 @@ endgame:
 
 exit
 main ENDP
+
+startGame proc
+call setUpGame
+call display
+call input
+push eax
+push edx
+mov ebx, eax
+call addmines
+call addNums
+pop edx
+pop eax
+cmp dh, 1
+jne noflag
+call dumpregs
+call placeflag
+jmp end_
+
+noflag:
+call check
+
+end_:
+ret
+startGame endp
 
 ;-----------------------------------------------|
 check PROC uses eax;                            |
@@ -208,18 +228,8 @@ jb invalidflagchoice
 cmp eax, 1
 je notflag
 mov dh, 1
-pop eax
-mov esi, offset disp
-add esi, eax
-cmp BYTE PTR [esi], 1
-je endall
-cmp BYTE PTR [esi], 2
-jne placeflag
-mov BYTE PTR [esi], 0
 jmp endall
-placeflag:
-mov BYTE PTR [esi], 2
-jmp endall
+
 invalidflagchoice:
 mov edx, offset invldflag
 call writestring
@@ -229,13 +239,29 @@ jmp endInput
 
 notflag:
 mov dh, 0
-pop eax
 
 endall:
+pop eax
 
 RET
 input ENDP
 ;------------------------------------------------------------
+
+placeflag proc
+mov esi, offset disp
+add esi, eax
+cmp BYTE PTR [esi], 1
+je end_
+cmp BYTE PTR [esi], 2
+jne place
+mov BYTE PTR [esi], 0
+jmp end_
+place:
+mov BYTE PTR [esi], 2
+end_:
+ret
+placeflag endp
+
 
 ;-------------------------|
 display proc;             |
