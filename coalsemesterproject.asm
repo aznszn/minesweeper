@@ -2,10 +2,10 @@ INCLUDE IRVINE32.inc
 
 .data
 ;field is the backend record of the value of all cells
-field BYTE 25 DUP(25 DUP(1))
+field BYTE 32 DUP(32 DUP(1))
 	  
 ;boolean grid that indicates whether the player has uncovered the corresponding cell
-disp BYTE 25 DUP(25 DUP(0))
+disp BYTE 32 DUP(32 DUP(0))
 
 ;character to represent covered cell
 ast BYTE 254,' ',0
@@ -27,7 +27,7 @@ play_rows DWORD ?
 play_cols DWORD ?
 playsize DWORD ?
 numOfmines DWORD ?
-rowSize	DWORD 24
+rowSize	DWORD 32
 
 .code
 main PROC
@@ -41,10 +41,14 @@ jna getDifficulty
 cmp eax, 4
 jnb getDifficulty
 call setUpGame
-;call showall
-;call display
+call display
+call input
+push eax
+mov ebx, eax
 call addmines
 call addNums
+pop eax
+call check
 
 gameloop:;
 call display
@@ -82,7 +86,6 @@ call writestring
 mov eax, white
 call setTextColor
 call crlf
-call showall
 call display
 
 endgame:
@@ -262,46 +265,53 @@ jbe topLoop
 
 call crlf
 call crlf
-
-mov i, 1
+mov esi, rowSize
+mov ecx, 1
 L1:	
 	mov eax, yellow
 	call setTextColor
-	mov eax, i
+	mov eax, ecx
 	call writedec
+
 	mov eax, white
 	call setTextColor
 	mov edx, offset space
 	call writestring
-	mov j, 1
-	cmp i, 9
+	cmp ecx, 9
+	push ecx
+	mov ecx, 1
 	ja L2
 	call writestring
 	L2:
-		mov eax, rowSize
-		mov ebx, i
-		imul ebx
-		add eax, j
-		mov esi, offset disp
-		add esi, eax
-		cmp BYTE PTR [esi], 0
+		inc esi
+		mov eax, esi
+		add eax, offset disp
+		
+		cmp BYTE PTR [eax], 0
 		je nosho
-		cmp BYTE PTR [esi], 2
+		
+		cmp BYTE PTR [eax], 2
 		je flagsho
-		mov esi, offset field
-		add esi, eax
-		cmp BYTE PTR [esi], 9
+		
+		sub eax, offset disp
+		add eax, offset field
+		
+		cmp BYTE PTR [eax], 9
 		je minesho
-		movzx eax, BYTE PTR [esi]
+		
+		movzx eax, BYTE PTR [eax]
 		push eax
+		
 		cmp eax, 0
 		je zero_
 		mov eax, lightgreen
 		call setTextColor
 		jmp numsho
+		
 		zero_:
 		mov eax, gray
 		call setTextColor
+		
 		numsho:
 		pop eax
 		call writedec
@@ -311,12 +321,14 @@ L1:
 		call writestring
 		call writestring
 		jmp e
+		
 		nosho:
 		mov edx, offset ast
 		call writestring
 		mov edx, offset space
 		call writestring
 		jmp e
+		
 		flagsho:
 		mov eax, red
 		call setTextColor
@@ -327,6 +339,7 @@ L1:
 		mov edx, offset space
 		call writestring
 		jmp e
+		
 		minesho:
 		mov eax, red
 		call settextcolor
@@ -337,15 +350,16 @@ L1:
 		mov edx, offset space
 		call writestring
 		e:
-	inc j
-	mov eax, play_rows
-	cmp j, eax
+	inc ecx
+	cmp ecx, play_rows
 	jbe L2
 call crlf
 call crlf
-inc i
-mov eax, play_cols
-cmp i, eax
+sub esi, play_cols
+add esi, rowSize
+pop ecx
+inc ecx
+cmp ecx, play_cols
 jbe L1
 ret
 display endp
@@ -355,25 +369,28 @@ display endp
 showall PROC;                              |
 ;sets the display value to 1 for all cells |
 ;----------------------------------------- |
-mov i, 1
+mov esi, rowSize
+mov ecx, 1
 row:
-
-	mov j, 1
+	push ecx
+	mov ecx, 1
 	col:
-		mov eax, rowSize
-		mov ebx, i
-		imul ebx
-		add eax, j
-		mov esi, offset disp
-		add esi, eax
-		mov BYTE PTR [esi], 1
-	inc j
-	mov eax, play_cols
-	cmp j, eax
+		inc esi
+		;mov eax, rowSize
+		;mov ebx, i
+		;imul ebx
+		;add eax, j
+		mov eax, esi
+		add eax, offset disp
+		mov BYTE PTR [eax], 1
+	inc ecx
+	cmp ecx, play_cols
 	jbe col
-inc i
-mov eax, play_rows
-cmp i, eax
+sub esi, play_cols
+add esi, rowSize
+pop ecx
+inc ecx
+cmp ecx, play_rows
 jbe row
 ret
 showall endp
@@ -382,26 +399,28 @@ showall endp
 addmines proc;           |
 ;adds mines to the field |
 ;========================|
-mov eax, 1
-mov ebx, 1
 call randomize
 mov ecx, numOfmines
-
 loop1:
-	mov esi, offset field
-	push ecx
-	
-	mov eax, playsize
+	mov eax, play_rows
+	inc eax
 	call randomrange
+	mov ebx, rowSize
+	imul ebx
 	
-	pop ecx
-	add esi,eax
-	cmp byte ptr [esi],0
-	je placemine
-
-	jmp loop1
-	placemine:
-	mov byte ptr[esi],9
+	mov ebx, eax
+	mov eax, play_cols
+	inc eax
+	call randomrange
+	add ebx, eax
+	mov eax, ebx
+	
+	add eax, offset field
+	cmp byte ptr [eax], 0
+	jne loop1
+	cmp eax, ebx
+	je loop1
+	mov byte ptr[eax], 9
 loop loop1
 ret
 addmines endp
@@ -428,7 +447,6 @@ addNumsL1:
 		
 		sub eax, rowSize
 		sub eax, 1
-
 		mov k, 0
 		addTopRow:
 			cmp BYTE PTR [esi + eax], 9
@@ -438,11 +456,11 @@ addNumsL1:
 		inc eax
 		inc k
 		cmp k, 3
-		loopnz addTopRow
+		jne addTopRow
+		
 		dec eax
 
 		add eax, rowSize
-		
 		mov k, 0
 		addSameRow:
 			cmp BYTE PTR [esi + eax], 9
@@ -535,8 +553,8 @@ mov numOfmines, 40
 jmp endSetup
 
 hard:
-mov play_rows, 22
-mov play_cols, 22
+mov play_rows, 30
+mov play_cols, 30
 mov numOfmines, 160
 
 endSetup:
@@ -544,6 +562,7 @@ mov eax, play_rows
 mov ebx, play_cols
 imul ebx
 mov playsize, eax
+
 mov i, 1
 L1:
 	
