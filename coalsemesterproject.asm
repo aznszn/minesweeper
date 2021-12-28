@@ -10,17 +10,16 @@ disp BYTE 32 DUP(32 DUP(0))
 ;character to represent covered cell
 ast BYTE 254,' ',0
 space BYTE ' ',0
-;messages to display to the user
 losttext BYTE 'You lost the game :(',0
 wontext BYTE 'LFG YOU WIN!!!!', 0
-bombSymbol BYTE 19,' ',0
+bomsymbol BYTE 19,' ',0
 rowText BYTE 'Enter row number: ', 0
 colText BYTE 'Enter column number: ', 0
 flagText BYTE 'Check or place/remove flag? enter 1 to check, enter 2 to add/remove flag: ',0
 invldflag BYTE 'Please enter 1 or 2 only',0
 invalidInput BYTE 'Err! Invalid input please enter valid value',0
-difficultyText BYTE 'Select difficulty level, press 1 for easy, press 2 for intermediate, press 3 for hard: ',0
 flag BYTE 232, ' ',0
+difficultyText BYTE 'Select difficulty level, press 1 for easy, press 2 for intermediate, press 3 for hard: ',0
 i DWORD 0
 j DWORD 0
 k DWORD 0
@@ -370,7 +369,7 @@ L1:
 		minesho:
 		mov eax, red
 		call settextcolor
-		mov edx, offset bombSymbol
+		mov edx, offset bomsymbol
 		call writestring
 		mov eax, white
 		call setTextColor
@@ -403,12 +402,16 @@ row:
 	mov ecx, 1
 	col:
 		inc esi
-		add esi, offset disp
-		mov BYTE PTR [esi], 1
+		;mov eax, rowSize
+		;mov ebx, i
+		;imul ebx
+		;add eax, j
+		mov eax, esi
+		add eax, offset disp
+		mov BYTE PTR [eax], 1
 	inc ecx
 	cmp ecx, play_cols
 	jbe col
-sub esi, offset disp
 sub esi, play_cols
 add esi, rowSize
 pop ecx
@@ -521,10 +524,7 @@ jbe addNumsL1
 ret
 addNums endp
 
-;------------------------\
-checkWin proc;           |
-;checks if user has won  |
-;------------------------/
+checkWin proc
 mov ecx, 0
 
 mov i, 1
